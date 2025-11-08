@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+    "os/exec"
+    "regexp"
 
 	openuem_nats "github.com/open-uem/nats"
 )
@@ -15,6 +17,10 @@ type bitLockerStatus struct {
 	ConversionStatus int8
 	ProtectionStatus int8
 	EncryptionMethod int8
+}
+
+type bitLockerRecoveryKey struct {
+        DriveKey string
 }
 
 type logicalDisk struct {
@@ -113,6 +119,34 @@ func getBitLockerStatus(driveLetter string) string {
 	default:
 		return "Unknown"
 	}
+}
+
+func getBitLockerKey(driveLetter string, debug bool) string {
+        // Command to get BitLocker recovery information
+        cmd := exec.Command("manage-bde", "-protectors", "-get", driveLetter) // Change "C:" if needed for other drives
+
+        output, err := cmd.CombinedOutput()
+        if err != nil {
+                log.Printf("[ERROR]: Could not get Bitlocker recovery key information for drive %s: %v", driveLetter,err)
+        }
+
+        outputStr := string(output)
+
+        // Define the regex pattern to match the password format in the BitLocker output
+        pattern := `Password:\s*(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})`
+        re := regexp.MustCompile(pattern)
+
+        // Find the string that matches the pattern
+        matches := re.FindStringSubmatch(outputStr)
+        if len(matches) == 0 {
+                log.Printf("[ERROR]: Bitlocker password not found")
+                return "Unknown"
+        }
+        if debug {
+                log.Printf("[DEBUG]: Recovery Key for drive %s is: %v",driveLetter,matches[1])
+        }
+        log.Printf("[INFO]: Obtained Bitlocker recovery key for drive %s",driveLetter)
+        return matches[1]
 }
 
 func convertBytesToUnits(size uint64) string {
