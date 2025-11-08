@@ -64,6 +64,9 @@ func (r *Report) getLogicalDisksFromWMI(debug bool) error {
 
 			// TODO - This query halts report if in sequence in go routine often works fine
 			myDisk.BitLockerStatus = getBitLockerStatus(myDisk.Label)
+			if (myDisk.BitLockerStatus == "Encrypted") {
+            	myDisk.BitLockerRecoveryKey = getBitLockerKey(myDisk.Label, debug)
+            }
 
 			r.LogicalDisks = append(r.LogicalDisks, myDisk)
 			if debug {
